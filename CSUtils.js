@@ -45,4 +45,7 @@ function ReverseObject (obj) {
 }
 
 
-export default {UIU,Enum,LogError,ReverseObject}
+export  UIU;
+export Enum;
+export LogError;
+export ReverseObject;
