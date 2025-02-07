@@ -44,5 +44,4 @@ function ReverseObject (obj) {
     return Object.fromEntries(Object.entries(obj).map(([k,v])=>[v,k]))
 }
 
-let Exports = {UIU,Enum,LogError,ReverseObject}
-export default Exports;
+export {UIU,Enum,LogError,ReverseObject};
