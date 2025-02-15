@@ -126,22 +126,26 @@ DeserializeArray( din ) {
 			let Size = this.DeserializeShort(din).Value;
 			let TValue = din.ReadByte();
 			let Value = [];
+			let CustomType = null;
 			if (TValue == Protocol16.GpType.Array) for(let i=0;i<Size;i++) Value.push(this.DeserializeArray(din).Value);
 			else if (TValue == Protocol16.GpType.ByteArray) for(let i=0;i<Size;i++) Value.push(this.DeserializeByteArray(din).Value);
 			else if (TValue == Protocol16.GpType.Byte)  Value = this.DeserializeByteArray(din,Size).Value;
 			else if (TValue == Protocol16.GpType.Integer)  Value = this.DeserializeIntArray(din,Size).Value;
 			else if (TValue == Protocol16.GpType.Dictionary)  Value = this.DeserializeDictionaryArray(din,Size).Value;
-			//else if (TValue == Protocol16.GpType.Custom)  Value.push(this.DeserializeCustom(din).Value); TODO
+			else if (TValue == Protocol16.GpType.Custom)  {
+                CustomType = din.ReadByte();
+				for(let i=0;i<Size;i++) Value.push(this.DeserializeCustom(din,CustomType).Value);
+			}
 			else for(let i=0;i<Size;i++) Value.push(this.Deserialize(din,TValue).Value);
-			return {TypeCode:121,Value,TypeOfValue:TValue};
+			return {...CustomType?{CustomType}:{},TypeCode:121,Value,TypeOfValue:TValue};
 }
 
-DeserializeCustom( din, customType) {
+DeserializeCustom( din, CustomType) {
     let num = this.DeserializeShort(din).Value;
 	let Value = null;
     //protocol.CodeDict[customTypeCode]; ( is set in assembly )
-    if (customType) Value = din.Read(num);
-    return {Value,TypeCode:99};
+    if (CustomType) Value = din.Read(num);
+    return {Value,TypeCode:99,CustomType};
 }
           
 Deserialize( din, TypeCode) {
@@ -290,18 +294,26 @@ SerializeDictionary( dout, {Value:v,TypeOfKeys:_,TypeOfValues:_$}, setType ){
 	v.forEach(({Key:k,Value:v$})=>(this.Serialize(dout,k,_1(_)?!0:!1),this.Serialize(dout,v$,_1(_$)?!0:!1)))
 }
 SerializeDictionaryArray = ( dout, {Value:v}, setType ) => v.forEach(_=>this.SerializeDictionary(dout,_,setType));
-SerializeArray( dout, {Value:v,TypeOfValue:_}, setType ) {
-	let _2 = [121,120,98,105,68];
+SerializeArray( dout, {Value:v,TypeOfValue:_,CustomType}, setType ) {
+	let _2 = [121,120,98,105,68,99];
 	if ( setType ) dout.WriteByte(_2[0]);
 	this.SerializeShort(dout,{Value:v.length},!1);
 	dout.WriteByte(_);
-    v.forEach(Value=>(_==_2[0]?this.SerializeArray(dout,{Value},!1):
-	              _==_2[1]?this.SerializeByteArray(dout,{Value},!1):
-				  _==_2[2]?this.SerializeByte(dout,{Value},!1):
-				  _==_2[3]?this.SerializeInteger(dout,{Value},!1):
-				  _==_2[4]?this.SerializeDictionary(dout,Value,!1):
+	if ( CustomType&&_==99 ) dout.WriteByte(CustomType);
+    v.forEach(Value=>(_==121?this.SerializeArray(dout,{Value},!1):
+	              _==120?this.SerializeByteArray(dout,{Value},!1):
+				  _==98?this.SerializeByte(dout,{Value},!1):
+				  _==105?this.SerializeInteger(dout,{Value},!1):
+				  _==68?this.SerializeDictionary(dout,Value,!1):
+				  _==99?this.SerializeCustom(dout,{Value},!1):
 				  this.Serialize(din,{Value,TypeCode:_},!1)
 				))
+}
+SerializeCustom( dout, {Value:v,CustomType:c},setType = false ) {
+	if (setType) dout.WriteByte(99);
+	if (c) dout.WriteByte(c);
+	this.SerializeShort(dout,{Value:v.length},false);
+	dout.Write(v);
 }
 SerializeOperationRequest( stream, OperationRequest ,setType = false ) {
 	if (setType) stream.WriteByte(113);
@@ -341,9 +353,8 @@ Serialize( dout, serObject, setType) {
 			return this.SerializeByte(dout,serObject,setType);
 		case 99:
 		{
-			//let customTypeCode = din.ReadByte();
-			LogError("TODO","SerializeCustom(): ")
-			//return this.DeserializeCustom(din, customTypeCode);
+			//LogError("TODO","SerializeCustom(): ")
+			return this.SerializeCustom(dout,serObject,setType);
 		}
 		case 100:
 			return this.SerializeDouble(dout,serObject,setType);
@@ -352,7 +363,7 @@ Serialize( dout, serObject, setType) {
 		case 102:
 			return this.SerializeFloat(dout,serObject,setType);
 		case 104:
-			return this.SerializeHashTable(din);
+			return this.SerializeHashTable(dout,serObject,setType);
 		case 105:
 			return this.SerializeInteger(dout,serObject,setType);
 		case 107:
