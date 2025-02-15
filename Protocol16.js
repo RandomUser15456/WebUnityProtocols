@@ -135,36 +135,15 @@ DeserializeArray( din ) {
 			else for(let i=0;i<Size;i++) Value.push(this.Deserialize(din,TValue).Value);
 			return {TypeCode:121,Value,TypeOfValue:TValue};
 }
-/*
-DeserializeCustom( din, customTypeCode) {
-			let num = this.DeserializeShort(din).Value;
-			let customType;
-			let flag = Protocol.CodeDict.get(customTypeCode,customType);
-			let result;
-			if (flag)
-			{
-				if (customType.DeserializeStreamFunction == null)
-				{
-					let array = din.Read(num);
-					result = customType.DeserializeFunction(array);
-				}
-				else
-				{
-					let position = din.pos;
-					let obj = customType.DeserializeStreamFunction(din, num);
-					let num2 = din.pos - position;
-					if ( num2 != num ) din.pos = position + num;
-					result = obj;
-				}
-			}
-			else
-			{
-				let array2 = din.Read(num);
-				result = array2;
-			}
-			return result;
+
+DeserializeCustom( din, customType) {
+    let num = this.DeserializeShort(din).Value;
+	let Value = null;
+    //protocol.CodeDict[customTypeCode]; ( is set in assembly )
+    if (customType) Value = din.Read(num);
+    return {Value,TypeCode:99};
 }
-     */       
+          
 Deserialize( din, TypeCode) {
 			if (TypeCode == 0 || TypeCode == 42) return {Value:null,TypeCode};
 			else if (TypeCode == 68) return this.DeserializeDictionary(din);
@@ -177,8 +156,9 @@ Deserialize( din, TypeCode) {
 				case 99:
 				{
 					let customTypeCode = din.ReadByte();
-                    LogError("TODO","DeserializeCustom(): " + customTypeCode)
-					//return this.DeserializeCustom(din, customTypeCode);
+
+                    //LogError("TODO","DeserializeCustom(): " + customTypeCode)
+					return this.DeserializeCustom(din, customTypeCode);
 				}
 				case 100:
 					return this.DeserializeDouble(din);
